@@ -4,7 +4,9 @@ import json
 import sys
 
 from src.validator import validate_indicator
-from src.providers.virustotal import get_report
+from src.aggregator import aggregate_indicator
+from src.scoring import calculate_risk
+from src.report import generate_report
 
 
 def main():
@@ -21,14 +23,23 @@ def main():
     value = args.indicator
 
     if value is None:
-        value = input("Enter an IP, domain, or file hash: ")
+        value = input("Enter an IP, domain, or file hash: ").strip()
 
     try:
         validated = validate_indicator(value)
-        report = get_report(validated)
 
-        print("\n=== VirusTotal Threat Intelligence Report ===")
+        aggregated = aggregate_indicator(validated)
+        risk = calculate_risk(aggregated)
+        report = generate_report(aggregated, risk)
+
+        print("\n=== OSINT Threat Intelligence Report ===")
         print(json.dumps(report, indent=4))
+
+        if not aggregated["provider_results"]:
+            print(
+                "\nWarning: No provider returned usable results. "
+                "Check the provider errors above."
+            )
 
     except (ValueError, RuntimeError) as error:
         print(f"\nError: {error}", file=sys.stderr)
